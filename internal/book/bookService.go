@@ -12,6 +12,8 @@ type IBookService interface {
 	GetBookById(ctx context.Context, bookId int64) (internal.Response[internal.Book], error)
 	UpdateBook(ctx context.Context, book internal.Book) (internal.Response[bool], error)
 	DeleteBook(ctx context.Context, bookId int64) (internal.Response[bool], error)
+	ListBooksByGenre(ctx context.Context, genre string) (internal.Response[[]internal.Book], error)
+	ListBooksByAuthor(ctx context.Context, author string) (internal.Response[[]internal.Book], error)
 }
 
 type bookService struct {
@@ -96,5 +98,37 @@ func (s *bookService) DeleteBook(ctx context.Context, bookId int64) (internal.Re
 	response.Data = data
 	response.Success = true
 	response.Message = "Book deleted successfully."
+	return response, nil
+}
+
+func (s *bookService) ListBooksByGenre(ctx context.Context, genre string) (internal.Response[[]internal.Book], error) {
+	var response internal.Response[[]internal.Book]
+
+	data, err := s.bookRepo.ListBooksByGenre(ctx, genre)
+	if err != nil {
+		response.Data = []internal.Book{}
+		response.Success = false
+		return response, err
+	}
+
+	response.Data = data
+	response.Success = true
+	response.Message = "All books registered in the system listed by genre."
+	return response, nil
+}
+
+func (s *bookService) ListBooksByAuthor(ctx context.Context, author string) (internal.Response[[]internal.Book], error) {
+	var response internal.Response[[]internal.Book]
+
+	data, err := s.bookRepo.ListBooksByGenre(ctx, author)
+	if err != nil {
+		response.Data = []internal.Book{}
+		response.Success = false
+		return response, err
+	}
+
+	response.Data = data
+	response.Success = true
+	response.Message = "All books registered in the system listed by author."
 	return response, nil
 }

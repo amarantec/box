@@ -16,6 +16,8 @@ type IBookRepository interface {
 	GetBookById(ctx context.Context, bookId int64) (internal.Book, error)
 	UpdateBook(ctx context.Context, book internal.Book) (bool, error)
 	DeleteBook(ctx context.Context, bookId int64) (bool, error)
+	ListBooksByGenre(ctx context.Context, genre string) ([]internal.Book, error)
+	ListBooksByAuthor(ctx context.Context, author string) ([]internal.Book, error)
 }
 
 type bookRepository struct {
@@ -82,7 +84,7 @@ func (r *bookRepository) GetBookById(ctx context.Context, bookId int64) (interna
                 FROM books WHERE id = $1 AND deleted_at IS NULL;`, bookId).Scan(&b.Title, &b.Description, &b.Genre, &b.Author, &b.PublishDate,
 			&b.Publisher, &b.Pages); err != nil {
 		if err == pgx.ErrNoRows {
-			return internal.Book{}, nil
+			return internal.Book{}, internal.ErrBookNotFound
 		}
 		return internal.Book{}, err
 	}
@@ -103,7 +105,7 @@ func (r *bookRepository) UpdateBook(ctx context.Context, b internal.Book) (bool,
 
 	if result.RowsAffected() == internal.ZERO {
 		log.Printf("Book not found, %d rows affected.\n", result.RowsAffected())
-		return false, nil
+		return false, internal.ErrBookNotFound
 	} else {
 		log.Printf("Book with ID %d updated.\n", b.ID)
 		return true, nil
@@ -122,9 +124,73 @@ func (r *bookRepository) DeleteBook(ctx context.Context, bookId int64) (bool, er
 
 	if result.RowsAffected() == internal.ZERO {
 		log.Printf("Book not found, %d rows affected.\n", result.RowsAffected())
-		return false, nil
+		return false, internal.ErrBookNotFound
 	} else {
 		log.Printf("Book with ID %d deleted.\n", bookId)
 		return true, nil
 	}
+}
+
+func (r *bookRepository) ListBooksByGenre(ctx context.Context, genre string) ([]internal.Book, error) {
+	rows, err :=
+		r.Conn.Query(
+			ctx,
+			`SELECT id, title, description, author, publish_date, publisher, pages
+            FROM books WHERE genre = $1 AND deleted_at IS NULL;`, genre)
+
+	if err != nil {
+		return []internal.Book{}, err
+	}
+
+	defer rows.Close()
+
+	var books []internal.Book
+	for rows.Next() {
+		b := internal.Book{}
+		if err := rows.Scan(
+			&b.ID,
+			&b.Title,
+			&b.Description,
+			&b.Author,
+			&b.PublishDate,
+			&b.Publisher,
+			&b.Pages); err != nil {
+			return []internal.Book{}, err
+		}
+		books = append(books, b)
+	}
+
+	return books, nil
+}
+
+func (r *bookRepository) ListBooksByAuthor(ctx context.Context, author string) ([]internal.Book, error) {
+	rows, err :=
+		r.Conn.Query(
+			ctx,
+			`SELECT id, title, description, genre, publish_date, publisher, pages
+            FROM books WHERE author = $1 AND deleted_at IS NULL;`, author)
+
+	if err != nil {
+		return []internal.Book{}, err
+	}
+
+	defer rows.Close()
+
+	var books []internal.Book
+	for rows.Next() {
+		b := internal.Book{}
+		if err := rows.Scan(
+			&b.ID,
+			&b.Title,
+			&b.Description,
+			&b.Genre,
+			&b.PublishDate,
+			&b.Publisher,
+			&b.Pages); err != nil {
+			return []internal.Book{}, err
+		}
+		books = append(books, b)
+	}
+
+	return books, nil
 }
