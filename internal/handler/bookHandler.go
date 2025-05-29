@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -92,9 +93,13 @@ func (h *BookHandler) GetBookById(w http.ResponseWriter, r *http.Request) {
 
 	response, err := h.Service.GetBookById(ctxTimeout, bookId)
 	if err != nil {
-		http.Error(w,
-			"Could not get this book from repository. Error: "+err.Error(),
-			http.StatusInternalServerError)
+		if errors.Is(err, internal.ErrBookNotFound) {
+			http.Error(w, "Book not found", http.StatusNotFound)
+		} else {
+			http.Error(w,
+				"Could not get this book from repository. Error: "+err.Error(),
+				http.StatusInternalServerError)
+		}
 		return
 
 	}
@@ -128,10 +133,16 @@ func (h *BookHandler) UpdateBook(w http.ResponseWriter, r *http.Request) {
 
 	response, err := h.Service.UpdateBook(ctxTimeout, book)
 	if err != nil {
-		http.Error(w,
-			"Could not update this book. Error: "+err.Error(),
-			http.StatusInternalServerError)
-		return
+		if errors.Is(err, internal.ErrBookNotFound) {
+			http.Error(w, "Book not found", http.StatusNotFound)
+			return
+		} else {
+			http.Error(w,
+				"Could not update this book. Error: "+err.Error(),
+				http.StatusInternalServerError)
+			return
+
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -160,15 +171,75 @@ func (h *BookHandler) DeleteBook(w http.ResponseWriter, r *http.Request) {
 
 	response, err := h.Service.DeleteBook(ctxTimeout, bookId)
 	if err != nil {
+		if errors.Is(err, internal.ErrBookNotFound) {
+			http.Error(w, "Book not found", http.StatusNotFound)
+			return
+		} else {
+			http.Error(w,
+				"Could not delete this book from repository. Error: "+err.Error(),
+				http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNoContent)
+	if err := json.NewEncoder(w).Encode(map[string]any{
+		"response": response,
+	}); err != nil {
 		http.Error(w,
-			"Could not delete this book from repository. Error: "+err.Error(),
+			"Could not encode this response. Error: "+err.Error(),
+			http.StatusInternalServerError)
+		return
+
+	}
+}
+
+func (h *BookHandler) ListBooksByGenre(w http.ResponseWriter, r *http.Request) {
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	bookGenre := r.PathValue("bookGenre")
+
+	response, err := h.Service.ListBooksByGenre(ctxTimeout, bookGenre)
+	if err != nil {
+		http.Error(w,
+			"Could not list books from repository. Error: "+err.Error(),
 			http.StatusInternalServerError)
 		return
 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(map[string]any{
+		"response": response,
+	}); err != nil {
+		http.Error(w,
+			"Could not encode this response. Error: "+err.Error(),
+			http.StatusInternalServerError)
+		return
+
+	}
+}
+
+func (h *BookHandler) ListBooksByAuthor(w http.ResponseWriter, r *http.Request) {
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	bookAuthor := r.PathValue("bookAuthor")
+
+	response, err := h.Service.ListBooksByAuthor(ctxTimeout, bookAuthor)
+	if err != nil {
+		http.Error(w,
+			"Could not list books from repository. Error: "+err.Error(),
+			http.StatusInternalServerError)
+		return
+
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(map[string]any{
 		"response": response,
 	}); err != nil {
