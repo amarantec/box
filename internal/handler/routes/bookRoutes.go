@@ -14,6 +14,8 @@ func bookRoutes(handler *handler.BookHandler) *http.ServeMux {
 	bookMux.HandleFunc("/get-book/{bookId}", handler.GetBookById)
 	bookMux.HandleFunc("/update-book", handler.UpdateBook)
 	bookMux.HandleFunc("/delete-book/{bookId}", handler.DeleteBook)
+	bookMux.HandleFunc("/list-books-by-genre/{bookGenre}", handler.ListBooksByGenre)
+	bookMux.HandleFunc("/list-books-by-author/{bookAtuhor}", handler.ListBooksByAuthor)
 
 	return bookMux
 }
